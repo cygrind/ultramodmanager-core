@@ -6,26 +6,26 @@ use serde::{Deserialize, Serialize};
 #[derive(Deserialize, Serialize, Debug, Default)]
 pub struct Manifest {
     #[serde(rename = "mod")]
-    mod_data: Mod,
+    pub mod_data: Mod,
 }
 
 #[derive(Deserialize, Serialize, Debug, Default)]
 pub struct Mod {
-    id: String,
-    name: String,
-    description: String,
-    author: String,
-    source_url: String,
-    download_url: String,
+    pub id: String,
+    pub name: String,
+    pub description: String,
+    pub author: String,
+    pub source_url: String,
+    pub download_url: String,
 
     /// YYYY-MM-DD
-    date: String,
+    pub date: String,
 
     /// semver
-    uk_version: String,
+    pub uk_version: String,
 
     /// semver
-    mod_version: String,
+    pub mod_version: String,
 }
 
 pub type Deserializers = HashMap<&'static str, &'static (dyn Fn(&str) -> Manifest + Send + Sync)>;
