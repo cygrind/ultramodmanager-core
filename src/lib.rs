@@ -28,8 +28,8 @@ pub struct Mod {
     mod_version: String,
 }
 
-type Deserializers = HashMap<&'static str, &'static (dyn Fn(&str) -> Manifest + Send + Sync)>;
-type Serializers = HashMap<&'static str, &'static (dyn Fn(&Manifest) -> String + Send + Sync)>;
+pub type Deserializers = HashMap<&'static str, &'static (dyn Fn(&str) -> Manifest + Send + Sync)>;
+pub type Serializers = HashMap<&'static str, &'static (dyn Fn(&Manifest) -> String + Send + Sync)>;
 
 lazy_static! {
     pub static ref DESERIALIZERS: Deserializers = HashMap::from_iter([
@@ -54,18 +54,18 @@ lazy_static! {
     ]);
 }
 
-fn from_toml(src: &str) -> Manifest {
+pub fn from_toml(src: &str) -> Manifest {
     toml::from_str(src).unwrap()
 }
 
-fn from_json(src: &str) -> Manifest {
+pub fn from_json(src: &str) -> Manifest {
     json5::from_str(src).unwrap()
 }
 
-fn to_toml_string(manifest: &Manifest) -> String {
+pub fn to_toml_string(manifest: &Manifest) -> String {
     toml::to_string(manifest).unwrap()
 }
 
-fn to_json5_string(manifest: &Manifest) -> String {
+pub fn to_json5_string(manifest: &Manifest) -> String {
     json5::to_string(manifest).unwrap()
 }
