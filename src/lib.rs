@@ -3,13 +3,13 @@ use std::collections::HashMap;
 use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 
-#[derive(Deserialize, Serialize, Debug, Default)]
+#[derive(Deserialize, Serialize, Debug, Default, Clone)]
 pub struct Manifest {
     #[serde(rename = "mod")]
     pub mod_data: Mod,
 }
 
-#[derive(Deserialize, Serialize, Debug, Default)]
+#[derive(Deserialize, Serialize, Debug, Default, Clone)]
 pub struct Mod {
     pub id: String,
     pub name: String,
