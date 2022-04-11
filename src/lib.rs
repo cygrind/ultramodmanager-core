@@ -1,6 +1,5 @@
-use std::collections::HashMap;
+use std::{error::Error, fmt::Display};
 
-use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize, Debug, Default, Clone)]
@@ -17,6 +16,7 @@ pub struct Mod {
     pub author: String,
     pub source_url: String,
     pub download_url: String,
+    pub checksum: String,
 
     /// YYYY-MM-DD
     pub date: String,
@@ -28,44 +28,81 @@ pub struct Mod {
     pub mod_version: String,
 }
 
-pub type Deserializers = HashMap<&'static str, &'static (dyn Fn(&str) -> Manifest + Send + Sync)>;
-pub type Serializers = HashMap<&'static str, &'static (dyn Fn(&Manifest) -> String + Send + Sync)>;
-
-lazy_static! {
-    pub static ref DESERIALIZERS: Deserializers = HashMap::from_iter([
-        (
-            "toml",
-            &from_toml as &(dyn Fn(&str) -> Manifest + Send + Sync)
-        ),
-        (
-            "json",
-            &from_json as &(dyn Fn(&str) -> Manifest + Send + Sync)
-        )
-    ]);
-    pub static ref SERIALIZERS: Serializers = HashMap::from_iter([
-        (
-            "toml",
-            &to_toml_string as &(dyn Fn(&Manifest) -> String + Send + Sync)
-        ),
-        (
-            "json",
-            &to_json5_string as &(dyn Fn(&Manifest) -> String + Send + Sync)
-        )
-    ]);
+pub fn deserialize(format: &str, src: &str) -> Result<Manifest, Box<dyn Error>> {
+    match format {
+        "toml" => from_toml(src),
+        "json" => from_json(src),
+        _ => Err(Box::new(ParseError::new("Invalid deserialization type"))),
+    }
 }
 
-pub fn from_toml(src: &str) -> Manifest {
-    toml::from_str(src).unwrap()
+pub fn serialize(format: &str, manifest: Manifest) -> Result<String, Box<dyn Error>> {
+    match format {
+        "toml" => to_toml_string(&manifest),
+        "json" => to_json5_string(&manifest),
+        _ => Err(ParseError::new("Invalid deserialization type")),
+    }
 }
 
-pub fn from_json(src: &str) -> Manifest {
-    json5::from_str(src).unwrap()
+#[derive(Debug)]
+pub struct ParseError {
+    message: String,
 }
 
-pub fn to_toml_string(manifest: &Manifest) -> String {
-    toml::to_string(manifest).unwrap()
+impl ParseError {
+    fn new(message: impl ToString) -> Box<ParseError> {
+        let message = message.to_string();
+
+        Box::new(ParseError { message })
+    }
 }
 
-pub fn to_json5_string(manifest: &Manifest) -> String {
-    json5::to_string(manifest).unwrap()
+impl Display for ParseError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.message)
+    }
+}
+
+impl Error for ParseError {}
+
+pub fn from_toml(src: &str) -> Result<Manifest, Box<dyn Error>> {
+    let r = toml::from_str(src)?;
+    Ok(r)
+}
+
+pub fn from_json(src: &str) -> Result<Manifest, Box<dyn Error>> {
+    let r = json5::from_str(src)?;
+    Ok(r)
+}
+
+pub fn to_toml_string(manifest: &Manifest) -> Result<String, Box<dyn Error>> {
+    let r = toml::to_string(manifest)?;
+    Ok(r)
+}
+
+pub fn to_json5_string(manifest: &Manifest) -> Result<String, Box<dyn Error>> {
+    let r = json5::to_string(manifest)?;
+    Ok(r)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    #[should_panic]
+    fn errors() {
+        let test_toml =
+            include_str!("/home/krista/Documents/coding/rust/ultra-mod-manager/test.json");
+
+        let out = from_toml(test_toml);
+        match out {
+            Ok(manifest) => {
+                dbg!(manifest);
+            }
+            Err(e) => {
+                println!("{}", e);
+            }
+        };
+    }
 }
