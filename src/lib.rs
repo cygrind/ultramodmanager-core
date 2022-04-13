@@ -18,7 +18,7 @@ pub struct Mod {
     pub download_url: String,
     pub checksum: String,
 
-    /// YYYY-MM-DD
+    /// RFC 3339
     pub date: String,
 
     /// semver
@@ -41,6 +41,25 @@ pub fn serialize(format: &str, manifest: Manifest) -> Result<String, Box<dyn Err
         "toml" => to_toml_string(&manifest),
         "json" => to_json5_string(&manifest),
         _ => Err(ParseError::new("Invalid deserialization type")),
+    }
+}
+
+#[derive(Debug)]
+pub struct RuntimeError {
+    message: String,
+}
+
+impl RuntimeError {
+    fn new(message: impl ToString) -> Box<RuntimeError> {
+        let message = message.to_string();
+
+        Box::new(RuntimeError { message })
+    }
+}
+
+impl Display for RuntimeError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.message)
     }
 }
 
