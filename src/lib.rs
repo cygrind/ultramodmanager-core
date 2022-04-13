@@ -50,7 +50,7 @@ pub struct RuntimeError {
 }
 
 impl RuntimeError {
-    fn new(message: impl ToString) -> Box<RuntimeError> {
+    pub fn new(message: impl ToString) -> Box<RuntimeError> {
         let message = message.to_string();
 
         Box::new(RuntimeError { message })
