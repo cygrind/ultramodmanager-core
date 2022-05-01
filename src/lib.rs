@@ -32,7 +32,7 @@ pub fn deserialize(format: &str, src: &str) -> Result<Manifest, Box<dyn Error>> 
     match format {
         "toml" => from_toml(src),
         "json" => from_json(src),
-        _ => Err(Box::new(ParseError::new("Invalid deserialization type"))),
+        _ => Err(ParseError::new("Invalid deserialization type")),
     }
 }
 
