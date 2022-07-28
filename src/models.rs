@@ -42,8 +42,8 @@ pub struct Mod {
 
 #[derive(Deserialize, Serialize, Debug, Default, Clone)]
 pub struct LockFile {
-    pub patterns: Vec<PatternLockRecord>,
     pub mods: Vec<ModLockRecord>,
+    pub patterns: Vec<PatternLockRecord>,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
@@ -72,20 +72,7 @@ mod test {
 
     #[test]
     fn lockfile() {
-        let lock = LockFile {
-            mods: vec![
-                ModLockRecord {
-                    ..Default::default()
-                };
-                2
-            ],
-            patterns: vec![
-                PatternLockRecord {
-                    ..Default::default()
-                };
-                2
-            ],
-        };
+        let lock = LockFile::default();
 
         let st = toml::to_string(&lock).unwrap();
         println!("{st}")
