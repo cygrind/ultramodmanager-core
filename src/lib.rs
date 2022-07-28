@@ -1,5 +1,6 @@
 pub mod models;
 pub mod error;
+pub mod manager;
 mod parse_internal;
 
 use models::Manifest;
