@@ -1,4 +1,8 @@
+use std::{fs::write, path::PathBuf};
+
 use serde::{Deserialize, Serialize};
+
+use crate::error::RuntimeError;
 
 #[derive(Deserialize, Serialize, Debug, Default, Clone)]
 pub struct UMMConfig {
@@ -9,6 +13,18 @@ pub struct UMMConfig {
 pub struct ConfigMeta {
     #[serde(rename = "ultrakill-path")]
     pub ultrakill_path: String,
+
+    #[serde(skip)]
+    pub(crate) config_path: PathBuf,
+
+    #[serde(skip)]
+    pub(crate) umm_dir: PathBuf,
+
+    #[serde(skip)]
+    pub(crate) mods_dir: PathBuf,
+
+    #[serde(skip)]
+    pub(crate) patterns_dir: PathBuf,
 }
 
 #[derive(Deserialize, Serialize, Debug, Default, Clone)]
@@ -46,6 +62,44 @@ pub struct LockFile {
     pub patterns: Vec<PatternLockRecord>,
 }
 
+impl LockFile {
+    pub fn install_mod() {}
+
+    pub fn install_pattern<S: AsRef<str>>(
+        &mut self,
+        config: &UMMConfig,
+        name: S,
+        contents: S,
+    ) -> Result<(), RuntimeError> {
+        let mut name = name.as_ref().replace(".cgp", "");
+        let mut copy = 0;
+
+        cygrind_utils::validate(&contents)
+            .map_err(|e| RuntimeError::new(format!("{name}.cgp validation failed: {}", e.0)))?;
+
+        while self
+            .patterns
+            .iter()
+            .map(|p| &p.name)
+            .collect::<Vec<_>>()
+            .contains(&&name)
+        {
+            // todo: fix _() repition
+            name = format!("{name}_({copy})");
+            copy += 1;
+        }
+
+        let _ = write(
+            config.meta.patterns_dir.join(format!("{}.cgp", &name)),
+            contents.as_ref(),
+        );
+
+        self.patterns.push(PatternLockRecord { name });
+
+        Ok(())
+    }
+}
+
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct ModLockRecord {
     pub name: String,
@@ -57,11 +111,17 @@ pub struct ModLockRecord {
 
 impl Default for ModLockRecord {
     fn default() -> Self {
-        Self { name: Default::default(), id: Default::default(), description: Default::default(), version: Default::default(), autoload: true }
+        Self {
+            name: Default::default(),
+            id: Default::default(),
+            description: Default::default(),
+            version: Default::default(),
+            autoload: true,
+        }
     }
 }
 
-#[derive(Deserialize, Serialize, Debug, Default, Clone)]
+#[derive(Deserialize, Serialize, Debug, Default, Clone, PartialEq, PartialOrd)]
 pub struct PatternLockRecord {
     pub name: String,
 }

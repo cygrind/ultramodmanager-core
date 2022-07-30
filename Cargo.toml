@@ -10,6 +10,7 @@ json5 = "0.4.1"
 toml = "0.5.8"
 lazy_static = "1.4.0"
 dirs = "4.0.0"
+cygrind-utils = { git = "https://github.com/cygrind/cygrind-utils.git" }
 
 [dependencies.serde]
 version = "1.0.136"

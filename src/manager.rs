@@ -46,16 +46,21 @@ pub fn init() -> Result<(UMMConfig, LockFile), InitError> {
         return Err(InitError::new("Ultramodmanger config file missing."));
     }
 
-    let config = read_to_string(config_path)
+    let config = read_to_string(&config_path)
         .map_err(|_| InitError::new("Unable to read ultramodmanager config file."))?;
 
-    let loaded_config = toml::from_str::<UMMConfig>(&*config)
+    let mut loaded_config = toml::from_str::<UMMConfig>(&*config)
         .map_err(|_| InitError::new("Unable to parse ultramodmanager config file."))?;
+
+    loaded_config.meta.config_path = config_path;
+    loaded_config.meta.umm_dir = umm_dir.clone();
+    loaded_config.meta.mods_dir = umm_dir.join("mods");
+    loaded_config.meta.patterns_dir = umm_dir.join("patterns");
 
     let loaded_lockfile = if !lockfile_path.exists() || !lockfile_path.is_file() {
         let lockfile = LockFile::default();
         let lock_string = toml::to_string_pretty(&lockfile).unwrap();
-        write(&lockfile_path, lock_string).unwrap();
+        let _ = write(&lockfile_path, lock_string);
 
         lockfile
     } else {

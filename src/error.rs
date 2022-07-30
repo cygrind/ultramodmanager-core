@@ -6,10 +6,10 @@ pub struct RuntimeError {
 }
 
 impl RuntimeError {
-    pub fn new(message: impl ToString) -> Box<RuntimeError> {
+    pub fn new(message: impl ToString) -> RuntimeError {
         let message = message.to_string();
 
-        Box::new(RuntimeError { message })
+        RuntimeError { message }
     }
 }
 
