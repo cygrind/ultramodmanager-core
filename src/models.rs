@@ -1,4 +1,7 @@
-use std::{fs::write, path::PathBuf};
+use std::{fs::write, os::unix, path::PathBuf};
+
+#[cfg(windows)]
+use std::os::windows;
 
 use serde::{Deserialize, Serialize};
 
@@ -12,7 +15,13 @@ pub struct UMMConfig {
 #[derive(Deserialize, Serialize, Debug, Default, Clone)]
 pub struct ConfigMeta {
     #[serde(rename = "ultrakill-path")]
-    pub ultrakill_path: String,
+    pub ultrakill_path: PathBuf,
+
+    #[serde(rename = "ultrakill-mods")]
+    pub ultrakill_mods: PathBuf,
+
+    #[serde(skip)]
+    pub(crate) ultrakill_patterns: PathBuf,
 
     #[serde(skip)]
     pub(crate) config_path: PathBuf,
@@ -63,7 +72,13 @@ pub struct LockFile {
 }
 
 impl LockFile {
-    pub fn install_mod() {}
+    pub fn install_mod(
+        &mut self,
+        config: &UMMConfig,
+        mod_path: PathBuf,
+    ) -> Result<(), RuntimeError> {
+        todo!()
+    }
 
     pub fn install_pattern<S: AsRef<str>>(
         &mut self,
@@ -71,21 +86,15 @@ impl LockFile {
         name: S,
         contents: S,
     ) -> Result<(), RuntimeError> {
-        let mut name = name.as_ref().replace(".cgp", "");
+        let orig_name = name.as_ref().replace(".cgp", "");
+        let mut name = orig_name.clone();
         let mut copy = 0;
 
         cygrind_utils::validate(&contents)
             .map_err(|e| RuntimeError::new(format!("{name}.cgp validation failed: {}", e.0)))?;
 
-        while self
-            .patterns
-            .iter()
-            .map(|p| &p.name)
-            .collect::<Vec<_>>()
-            .contains(&&name)
-        {
-            // todo: fix _() repition
-            name = format!("{name}_({copy})");
+        while self.patterns.iter().map(|p| &p.name).any(|x| x == &name) {
+            name = format!("{orig_name}_({copy})");
             copy += 1;
         }
 
@@ -93,6 +102,32 @@ impl LockFile {
             config.meta.patterns_dir.join(format!("{}.cgp", &name)),
             contents.as_ref(),
         );
+
+        #[cfg(unix)]
+        {
+            if let Err(e) = unix::fs::symlink(
+                &config.meta.patterns_dir.join(format!("{}.cgp", &name)),
+                &config.meta.ultrakill_patterns.join(format!("{}.cgp", &name)),
+            ) {
+                return Err(RuntimeError::new(format!(
+                    "Unable to symlink {}.cgp to the ULTRAKILL Patterns directory ({:?}): {}",
+                    &name, &config.meta.ultrakill_patterns, e
+                )));
+            }
+        }
+
+        #[cfg(windows)]
+        {
+            if let Err(e) = windows::fs::symlink_file(
+                &config.meta.patterns_dir.join(format!("{}.cgp", &name)),
+                &config.meta.ultrakill_patterns.join(format!("{}.cgp", &name)),
+            ) {
+                return Err(RuntimeError::new(format!(
+                    "Unable to symlink {}.cgp to the ULTRAKILL Patterns directory ({:?}): {}",
+                    &name, &config.meta.ultrakill_patterns, e
+                )));
+            }
+        }
 
         self.patterns.push(PatternLockRecord { name });
 
