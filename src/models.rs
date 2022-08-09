@@ -8,11 +8,13 @@ use serde::{Deserialize, Serialize};
 use crate::error::RuntimeError;
 
 #[derive(Deserialize, Serialize, Debug, Default, Clone)]
+#[repr(C)]
 pub struct UMMConfig {
     pub meta: ConfigMeta,
 }
 
 #[derive(Deserialize, Serialize, Debug, Default, Clone)]
+#[repr(C)]
 pub struct ConfigMeta {
     #[serde(rename = "ultrakill-path")]
     pub ultrakill_path: PathBuf,
@@ -37,12 +39,14 @@ pub struct ConfigMeta {
 }
 
 #[derive(Deserialize, Serialize, Debug, Default, Clone)]
+#[repr(C)]
 pub struct Manifest {
     #[serde(rename = "mod")]
     pub mod_data: Mod,
 }
 
 #[derive(Deserialize, Serialize, Debug, Default, Clone)]
+#[repr(C)]
 pub struct Mod {
     pub id: String,
     pub name: String,
@@ -66,6 +70,7 @@ pub struct Mod {
 }
 
 #[derive(Deserialize, Serialize, Debug, Default, Clone)]
+#[repr(C)]
 pub struct LockFile {
     pub mods: Vec<ModLockRecord>,
     pub patterns: Vec<PatternLockRecord>,
@@ -136,6 +141,7 @@ impl LockFile {
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
+#[repr(C)]
 pub struct ModLockRecord {
     pub name: String,
     pub id: String,
@@ -157,6 +163,7 @@ impl Default for ModLockRecord {
 }
 
 #[derive(Deserialize, Serialize, Debug, Default, Clone, PartialEq, PartialOrd)]
+#[repr(C)]
 pub struct PatternLockRecord {
     pub name: String,
 }
