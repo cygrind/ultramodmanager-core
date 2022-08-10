@@ -1,4 +1,7 @@
-use std::{fs::write, os::unix, path::PathBuf};
+use std::{fs::write, path::PathBuf};
+
+#[cfg(unix)]
+use std::os::unix;
 
 #[cfg(windows)]
 use std::os::windows;
@@ -21,19 +24,19 @@ pub struct ConfigMeta {
     pub ultrakill_mods: PathBuf,
 
     #[serde(skip)]
-    pub(crate) ultrakill_patterns: PathBuf,
+    pub ultrakill_patterns: PathBuf,
 
     #[serde(skip)]
-    pub(crate) config_path: PathBuf,
+    pub config_path: PathBuf,
 
     #[serde(skip)]
-    pub(crate) umm_dir: PathBuf,
+    pub umm_dir: PathBuf,
 
     #[serde(skip)]
-    pub(crate) mods_dir: PathBuf,
+    pub mods_dir: PathBuf,
 
     #[serde(skip)]
-    pub(crate) patterns_dir: PathBuf,
+    pub patterns_dir: PathBuf,
 }
 
 #[derive(Deserialize, Serialize, Debug, Default, Clone)]
