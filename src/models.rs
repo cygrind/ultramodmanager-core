@@ -1,4 +1,9 @@
-use std::{fs::write, path::PathBuf};
+use std::fs;
+use std::path::Path;
+use std::{
+    fs::{read_to_string, write},
+    path::PathBuf,
+};
 
 #[cfg(unix)]
 use std::os::unix;
@@ -8,7 +13,7 @@ use std::os::windows;
 
 use serde::{Deserialize, Serialize};
 
-use crate::error::RuntimeError;
+use crate::{error::RuntimeError, parse_internal::from_toml};
 
 #[derive(Deserialize, Serialize, Debug, Default, Clone)]
 pub struct UMMConfig {
@@ -78,9 +83,42 @@ impl LockFile {
     pub fn install_mod(
         &mut self,
         config: &UMMConfig,
-        mod_path: PathBuf,
+        mod_dir: PathBuf,
     ) -> Result<(), RuntimeError> {
-        todo!()
+        let manifest_path = mod_dir.join("manifest.toml");
+
+        if !manifest_path.exists() || !manifest_path.is_file() {
+            return Err(RuntimeError::new(format!(
+                "manifest.toml is not present in mod directory \"{}\".",
+                mod_dir.file_name().unwrap().to_string_lossy()
+            )));
+        }
+
+        let loaded_manifest = read_to_string(manifest_path)
+            .map_err(|_| RuntimeError::new("Unable to read ultramodmanager config file."))?;
+
+        let parsed_manifest = from_toml(&loaded_manifest)
+            .map_err(|e| RuntimeError::new(format!("Unable to parse manifest: {e}")))?;
+
+        copy(
+            mod_dir,
+            config.meta.mods_dir.join(format!(
+                "{}",
+                mod_dir.file_name().unwrap().to_str().unwrap()
+            )),
+        );
+
+        // todo: link from mods_dir to ultrakill_mods
+
+        self.mods.push(ModLockRecord {
+            id: parsed_manifest.mod_data.id,
+            description: parsed_manifest.mod_data.description,
+            name: parsed_manifest.mod_data.name,
+            version: parsed_manifest.mod_data.mod_version,
+            ..Default::default()
+        });
+
+        Ok(())
     }
 
     pub fn install_pattern<S: AsRef<str>>(
@@ -110,7 +148,10 @@ impl LockFile {
         {
             if let Err(e) = unix::fs::symlink(
                 &config.meta.patterns_dir.join(format!("{}.cgp", &name)),
-                &config.meta.ultrakill_patterns.join(format!("{}.cgp", &name)),
+                &config
+                    .meta
+                    .ultrakill_patterns
+                    .join(format!("{}.cgp", &name)),
             ) {
                 return Err(RuntimeError::new(format!(
                     "Unable to symlink {}.cgp to the ULTRAKILL Patterns directory ({:?}): {}",
@@ -123,7 +164,10 @@ impl LockFile {
         {
             if let Err(e) = windows::fs::symlink_file(
                 &config.meta.patterns_dir.join(format!("{}.cgp", &name)),
-                &config.meta.ultrakill_patterns.join(format!("{}.cgp", &name)),
+                &config
+                    .meta
+                    .ultrakill_patterns
+                    .join(format!("{}.cgp", &name)),
             ) {
                 return Err(RuntimeError::new(format!(
                     "Unable to symlink {}.cgp to the ULTRAKILL Patterns directory ({:?}): {}",
@@ -175,4 +219,51 @@ mod test {
         let st = toml::to_string(&lock).unwrap();
         println!("{st}")
     }
+}
+
+fn copy<U: AsRef<Path>, V: AsRef<Path>>(from: U, to: V) -> Result<(), std::io::Error> {
+    let mut stack = Vec::new();
+    stack.push(PathBuf::from(from.as_ref()));
+
+    let output_root = PathBuf::from(to.as_ref());
+    let input_root = PathBuf::from(from.as_ref()).components().count();
+
+    while let Some(working_path) = stack.pop() {
+        println!("process: {:?}", &working_path);
+
+        // Generate a relative path
+        let src: PathBuf = working_path.components().skip(input_root).collect();
+
+        // Create a destination if missing
+        let dest = if src.components().count() == 0 {
+            output_root.clone()
+        } else {
+            output_root.join(&src)
+        };
+        if fs::metadata(&dest).is_err() {
+            println!(" mkdir: {:?}", dest);
+            fs::create_dir_all(&dest)?;
+        }
+
+        for entry in fs::read_dir(working_path)? {
+            let entry = entry?;
+            let path = entry.path();
+            if path.is_dir() {
+                stack.push(path);
+            } else {
+                match path.file_name() {
+                    Some(filename) => {
+                        let dest_path = dest.join(filename);
+                        println!("  copy: {:?} -> {:?}", &path, &dest_path);
+                        fs::copy(&path, &dest_path)?;
+                    }
+                    None => {
+                        println!("failed: {:?}", path);
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(())
 }
