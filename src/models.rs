@@ -21,26 +21,14 @@ pub struct UMMConfig {
 }
 
 #[derive(Deserialize, Serialize, Debug, Default, Clone)]
+#[serde(rename_all = "kebab-case")]
 pub struct ConfigMeta {
-    #[serde(rename = "ultrakill-path")]
     pub ultrakill_path: PathBuf,
-
-    #[serde(rename = "ultrakill-mods")]
     pub ultrakill_mods: PathBuf,
-
-    #[serde(skip)]
     pub ultrakill_patterns: PathBuf,
-
-    #[serde(skip)]
     pub config_path: PathBuf,
-
-    #[serde(skip)]
     pub umm_dir: PathBuf,
-
-    #[serde(skip)]
     pub mods_dir: PathBuf,
-
-    #[serde(skip)]
     pub patterns_dir: PathBuf,
 }
 
@@ -51,6 +39,7 @@ pub struct Manifest {
 }
 
 #[derive(Deserialize, Serialize, Debug, Default, Clone)]
+#[serde(rename_all = "kebab-case")]
 pub struct Mod {
     pub id: String,
     pub name: String,
@@ -94,48 +83,43 @@ impl LockFile {
             )));
         }
 
-        let loaded_manifest = read_to_string(manifest_path)
-            .map_err(|_| RuntimeError::new("Unable to read ultramodmanager config file."))?;
+        let loaded_manifest = read_to_string(manifest_path).map_err(|e| {
+            RuntimeError::new(format!("Unable to read ultramodmanager config file: {e}"))
+        })?;
 
         let parsed_manifest = from_toml(&loaded_manifest)
             .map_err(|e| RuntimeError::new(format!("Unable to parse manifest: {e}")))?;
-        
+
         let mod_dir_name = mod_dir.file_name().unwrap().to_str().unwrap();
         let dest = config.meta.mods_dir.join(mod_dir_name);
 
-        copy(
-            mod_dir,
-            dest,
-        );
+        copy(&mod_dir, &dest).map_err(|e| {
+            RuntimeError::new(format!(
+                "Unable to copy {} to the ultramodmanager mods directory: {e}",
+                &dest.display()
+            ))
+        })?;
 
         #[cfg(unix)]
         {
-            if let Err(e) = unix::fs::symlink(
-                &dest,
-                &config
-                        .meta
-                        .ultrakill_mods
-                        .join(&mod_dir_name),
-            ) {
+            if let Err(e) =
+                unix::fs::symlink(&dest, &config.meta.ultrakill_mods.join(&mod_dir_name))
+            {
                 return Err(RuntimeError::new(format!(
                     "Unable to symlink new mod {} to the ULTRAKILL Mods directory ({:?}): {}",
-                    &name, &config.meta.ultrakill_mods, e
+                    &mod_dir_name, &config.meta.ultrakill_mods, e
                 )));
             }
         }
 
         #[cfg(windows)]
         {
-            if let Err(e) = windows::fs::symlink_dir(
-                &dest,
-                &config
-                    .meta
-                    .ultrakill_mods
-                    .join(&mod_dir_name),
-            ) {
+            if let Err(e) =
+                windows::fs::symlink_dir(&dest, &config.meta.ultrakill_mods.join(&mod_dir_name))
+            {
                 return Err(RuntimeError::new(format!(
                     "Unable to symlink new mod {} to the ULTRAKILL Mods directory ({:?}): {}",
-                    &name, &config.meta.ultrakill_mods, e
+                    &mod_dir_name, &config.meta.ultrakill_mods, e
                 )));
             }
         }
@@ -224,7 +208,10 @@ pub struct ModLockRecord {
 impl Default for ModLockRecord {
     fn default() -> Self {
         Self {
-            ..Default::default(),
+            description: String::new(),
+            id: String::new(),
+            name: String::new(),
+            version: String::new(),
             autoload: true,
         }
     }
@@ -245,6 +232,12 @@ mod test {
 
         let st = toml::to_string(&lock).unwrap();
         println!("{st}")
+    }
+
+    #[test]
+    fn umm_config() {
+        let config = UMMConfig::default();
+        println!("{}", toml::to_string(&config).unwrap())
     }
 }
 
