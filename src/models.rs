@@ -99,16 +99,46 @@ impl LockFile {
 
         let parsed_manifest = from_toml(&loaded_manifest)
             .map_err(|e| RuntimeError::new(format!("Unable to parse manifest: {e}")))?;
+        
+        let mod_dir_name = mod_dir.file_name().unwrap().to_str().unwrap();
+        let dest = config.meta.mods_dir.join(mod_dir_name);
 
         copy(
             mod_dir,
-            config.meta.mods_dir.join(format!(
-                "{}",
-                mod_dir.file_name().unwrap().to_str().unwrap()
-            )),
+            dest,
         );
 
-        // todo: link from mods_dir to ultrakill_mods
+        #[cfg(unix)]
+        {
+            if let Err(e) = unix::fs::symlink(
+                &dest,
+                &config
+                        .meta
+                        .ultrakill_mods
+                        .join(&mod_dir_name),
+            ) {
+                return Err(RuntimeError::new(format!(
+                    "Unable to symlink new mod {} to the ULTRAKILL Mods directory ({:?}): {}",
+                    &name, &config.meta.ultrakill_mods, e
+                )));
+            }
+        }
+
+        #[cfg(windows)]
+        {
+            if let Err(e) = windows::fs::symlink_dir(
+                &dest,
+                &config
+                    .meta
+                    .ultrakill_mods
+                    .join(&mod_dir_name),
+            ) {
+                return Err(RuntimeError::new(format!(
+                    "Unable to symlink new mod {} to the ULTRAKILL Mods directory ({:?}): {}",
+                    &name, &config.meta.ultrakill_mods, e
+                )));
+            }
+        }
 
         self.mods.push(ModLockRecord {
             id: parsed_manifest.mod_data.id,
@@ -194,10 +224,7 @@ pub struct ModLockRecord {
 impl Default for ModLockRecord {
     fn default() -> Self {
         Self {
-            name: Default::default(),
-            id: Default::default(),
-            description: Default::default(),
-            version: Default::default(),
+            ..Default::default(),
             autoload: true,
         }
     }
