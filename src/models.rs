@@ -49,7 +49,7 @@ pub struct Mod {
     pub download_url: String,
     pub checksum: String,
 
-    /// Location of mod icon relative to the .ultramodmanager directory
+    /// Location of mod icon relative to the mod directory
     pub icon_path: String,
 
     /// RFC 3339
@@ -146,7 +146,7 @@ impl LockFile {
         let mut copy = 0;
 
         cygrind_utils::validate(&contents)
-            .map_err(|e| RuntimeError::new(format!("{name}.cgp validation failed: {}", e.0)))?;
+            .map_err(|e| RuntimeError::new(format!("{name}.cgp validation failed: {}", e)))?;
 
         while self.patterns.iter().map(|p| &p.name).any(|x| x == &name) {
             name = format!("{orig_name}_({copy})");
