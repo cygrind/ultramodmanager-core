@@ -10,6 +10,8 @@ use parse_internal::*;
 pub fn deserialize(format: &str, src: &str) -> Result<Manifest, ParseError> {
     match format {
         "toml" => from_toml(src),
+
+        #[deprecated]
         "json" => from_json(src),
         _ => Err(ParseError::new("Invalid deserialization type")),
     }
@@ -18,6 +20,8 @@ pub fn deserialize(format: &str, src: &str) -> Result<Manifest, ParseError> {
 pub fn serialize(format: &str, manifest: Manifest) -> Result<String, ParseError> {
     match format {
         "toml" => to_toml_string(&manifest),
+
+        #[deprecated]
         "json" => to_json5_string(&manifest),
         _ => Err(ParseError::new("Invalid deserialization type")),
     }
