@@ -1,5 +1,5 @@
-use std::fs;
 use std::path::Path;
+use std::{fs, io};
 use std::{
     fs::{read_to_string, write},
     path::PathBuf,
@@ -11,13 +11,51 @@ use std::os::unix;
 #[cfg(windows)]
 use std::os::windows;
 
+use dirs::home_dir;
+use semver::Version;
 use serde::{Deserialize, Serialize};
 
 use crate::{error::RuntimeError, parse_internal::from_toml};
 
-#[derive(Deserialize, Serialize, Debug, Default, Clone)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct UMMConfig {
     pub meta: ConfigMeta,
+}
+
+pub trait Save {
+    fn save(&self) -> io::Result<()>;
+}
+
+impl Default for UMMConfig {
+    /// Panics if the `.ultramodmanager` file is not a directory
+    fn default() -> Self {
+        let home = home_dir().unwrap();
+        let umm_path = home.join(".ultramodmanager");
+        let config_path = umm_path.join("config.toml");
+        let lockfile_path = umm_path.join("ultramodmanager.lock");
+
+        if !umm_path.exists() || !umm_path.is_dir() {
+            panic!("The ultramodmanager dotfile needs to be a directory.")
+        }
+
+        Self {
+            meta: ConfigMeta {
+                config_path,
+                lockfile_path,
+                ..Default::default()
+            },
+        }
+    }
+}
+
+impl Save for UMMConfig {
+    /// Saves the config with any mutable changes you may have implemented
+    fn save(&self) -> io::Result<()> {
+        write(
+            &self.meta.config_path,
+            toml::to_string_pretty(self).unwrap(),
+        )
+    }
 }
 
 #[derive(Deserialize, Serialize, Debug, Default, Clone)]
@@ -27,6 +65,7 @@ pub struct ConfigMeta {
     pub ultrakill_mods: PathBuf,
     pub ultrakill_patterns: PathBuf,
     pub config_path: PathBuf,
+    pub lockfile_path: PathBuf,
     pub umm_dir: PathBuf,
     pub mods_dir: PathBuf,
     pub patterns_dir: PathBuf,
@@ -55,7 +94,6 @@ pub struct Mod {
     /// RFC 3339
     pub date: String,
 
-    /// semver
     pub uk_version: String,
 
     /// semver
@@ -90,8 +128,32 @@ impl LockFile {
         let parsed_manifest = from_toml(&loaded_manifest)
             .map_err(|e| RuntimeError::new(format!("Unable to parse manifest: {e}")))?;
 
-        let mod_dir_name = mod_dir.file_name().unwrap().to_str().unwrap();
-        let dest = config.meta.mods_dir.join(mod_dir_name);
+        let mod_dir_name = format!(
+            "{}@{}",
+            &parsed_manifest.mod_data.id, &parsed_manifest.mod_data.mod_version
+        );
+        let dest = config.meta.mods_dir.join(&mod_dir_name);
+
+        if self
+            .mods
+            .iter()
+            .filter(|m| {
+                    &m.version == &parsed_manifest.mod_data.mod_version
+                    && &m.id == &parsed_manifest.mod_data.id
+            })
+            .next()
+            .is_some()
+        {
+            return Err(RuntimeError::new(
+                "A mod with that id and version already exists locally.",
+            ));
+        }
+
+        if dest.exists() {
+            return Err(RuntimeError::new(
+                "A mod with that id and version already exists in the fs.",
+            ));
+        }
 
         copy(&mod_dir, &dest).map_err(|e| {
             RuntimeError::new(format!(
@@ -127,21 +189,31 @@ impl LockFile {
         self.mods.push(ModLockRecord {
             id: parsed_manifest.mod_data.id,
             description: parsed_manifest.mod_data.description,
-            name: parsed_manifest.mod_data.name,
+            name: mod_dir_name,
             version: parsed_manifest.mod_data.mod_version,
             ..Default::default()
         });
 
+        write(
+            &config.meta.lockfile_path,
+            toml::to_string_pretty(&self).unwrap(),
+        )
+        .map_err(|_| RuntimeError::new("Failed to write updated lockfile to fs."))?;
+
         Ok(())
     }
 
-    pub fn install_pattern<S: AsRef<str>>(
+    pub fn install_pattern(
         &mut self,
         config: &UMMConfig,
-        name: S,
-        contents: S,
+        version: impl AsRef<str>,
+        name: impl AsRef<str>,
+        contents: impl AsRef<str>,
     ) -> Result<(), RuntimeError> {
-        let orig_name = name.as_ref().replace(".cgp", "");
+        let base_name = name.as_ref().replace(".cgp", "");
+        let base_vers = Version::parse(version.as_ref())
+            .map_err(|_| RuntimeError::new("Unable to parse pattern version to semver."))?;
+        let orig_name = format!("{base_name}@{base_vers}");
         let mut name = orig_name.clone();
         let mut copy = 0;
 
@@ -153,10 +225,11 @@ impl LockFile {
             copy += 1;
         }
 
-        let _ = write(
+        write(
             config.meta.patterns_dir.join(format!("{}.cgp", &name)),
             contents.as_ref(),
-        );
+        )
+        .map_err(|_| RuntimeError::new("Failed to write pattern file to fs."))?;
 
         #[cfg(unix)]
         {
@@ -190,7 +263,16 @@ impl LockFile {
             }
         }
 
-        self.patterns.push(PatternLockRecord { name });
+        self.patterns.push(PatternLockRecord {
+            name,
+            version: version.as_ref().into(),
+        });
+
+        write(
+            &config.meta.lockfile_path,
+            toml::to_string_pretty(&self).unwrap(),
+        )
+        .map_err(|_| RuntimeError::new("Failed to write updated lockfile to fs."))?;
 
         Ok(())
     }
@@ -220,6 +302,7 @@ impl Default for ModLockRecord {
 #[derive(Deserialize, Serialize, Debug, Default, Clone, PartialEq, PartialOrd)]
 pub struct PatternLockRecord {
     pub name: String,
+    pub version: String,
 }
 
 #[cfg(test)]
@@ -238,6 +321,12 @@ mod test {
     fn umm_config() {
         let config = UMMConfig::default();
         println!("{}", toml::to_string(&config).unwrap())
+    }
+
+    #[test]
+    fn manifest() {
+        let manifest = Manifest::default();
+        println!("{}", toml::to_string(&manifest).unwrap())
     }
 }
 

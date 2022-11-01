@@ -12,6 +12,7 @@ lazy_static = "1.4.0"
 dirs = "4.0.0"
 cygrind-utils = { git = "https://github.com/cygrind/cygrind-utils.git" }
 fs_extra = "1.2.0"
+semver = "1.0.14"
 
 [dependencies.serde]
 version = "1.0.136"
