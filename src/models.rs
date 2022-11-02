@@ -22,6 +22,17 @@ pub struct UMMConfig {
     pub meta: ConfigMeta,
 }
 
+impl UMMConfig {
+    pub fn set_ultrakill_path(&mut self, path: PathBuf) -> io::Result<()> {
+        self.meta.ultrakill_path = path;
+        self.meta.ultrakill_mods = self.meta.ultrakill_path.join("Mods");
+        self.meta.ultrakill_patterns = self.meta.ultrakill_path.join("Cybergrind").join("Patterns");
+        self.save()?;
+
+        Ok(())
+    }
+}
+
 pub trait Save {
     fn save(&self) -> io::Result<()>;
 }
@@ -31,8 +42,6 @@ impl Default for UMMConfig {
     fn default() -> Self {
         let home = home_dir().unwrap();
         let umm_path = home.join(".ultramodmanager");
-        let config_path = umm_path.join("config.toml");
-        let lockfile_path = umm_path.join("ultramodmanager.lock");
 
         if !umm_path.exists() || !umm_path.is_dir() {
             panic!("The ultramodmanager dotfile needs to be a directory.")
@@ -40,8 +49,8 @@ impl Default for UMMConfig {
 
         Self {
             meta: ConfigMeta {
-                config_path,
-                lockfile_path,
+                mods_dir: umm_path.join("mods"),
+                patterns_dir: umm_path.join("patterns"),
                 ..Default::default()
             },
         }
@@ -52,7 +61,7 @@ impl Save for UMMConfig {
     /// Saves the config with any mutable changes you may have implemented
     fn save(&self) -> io::Result<()> {
         write(
-            &self.meta.config_path,
+            &self.meta.umm_dir.join("config.toml"),
             toml::to_string_pretty(self).unwrap(),
         )
     }
@@ -64,8 +73,6 @@ pub struct ConfigMeta {
     pub ultrakill_path: PathBuf,
     pub ultrakill_mods: PathBuf,
     pub ultrakill_patterns: PathBuf,
-    pub config_path: PathBuf,
-    pub lockfile_path: PathBuf,
     pub umm_dir: PathBuf,
     pub mods_dir: PathBuf,
     pub patterns_dir: PathBuf,
@@ -138,7 +145,7 @@ impl LockFile {
             .mods
             .iter()
             .filter(|m| {
-                    &m.version == &parsed_manifest.mod_data.mod_version
+                &m.version == &parsed_manifest.mod_data.mod_version
                     && &m.id == &parsed_manifest.mod_data.id
             })
             .next()
@@ -195,7 +202,7 @@ impl LockFile {
         });
 
         write(
-            &config.meta.lockfile_path,
+            &config.meta.umm_dir.join("ultramodmanager.lock"),
             toml::to_string_pretty(&self).unwrap(),
         )
         .map_err(|_| RuntimeError::new("Failed to write updated lockfile to fs."))?;
@@ -269,7 +276,7 @@ impl LockFile {
         });
 
         write(
-            &config.meta.lockfile_path,
+            &config.meta.umm_dir.join("ultramodmanager.lock"),
             toml::to_string_pretty(&self).unwrap(),
         )
         .map_err(|_| RuntimeError::new("Failed to write updated lockfile to fs."))?;

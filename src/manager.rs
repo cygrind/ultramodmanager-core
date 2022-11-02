@@ -51,7 +51,13 @@ pub fn init() -> Result<(UMMConfig, LockFile), InitError> {
         toml::from_str(&config)
             .map_err(|_| InitError::new("Unable to parse ultramodmanager config file."))?
     } else {
-        UMMConfig::default()
+        let out = UMMConfig::default();
+        let config = toml::to_string_pretty(&out).unwrap();
+
+        write(config_path, config)
+            .map_err(|_| InitError::new("Failed to write default config file to fs."))?;
+
+        out
     };
 
     let lock = if lockfile_path.exists() && lockfile_path.is_file() {
