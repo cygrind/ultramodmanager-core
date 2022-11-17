@@ -1,11 +1,14 @@
 use std::{
     fmt::Display,
-    fs::{read_to_string, write},
+    fs::{create_dir_all, read_to_string, write},
+    os::unix,
 };
 
 use dirs::home_dir;
 
-use crate::models::{LockFile, UMMConfig};
+use crate::{
+    models::{LockFile, UMMConfig},
+};
 
 #[derive(Debug)]
 pub struct InitError {
@@ -35,7 +38,12 @@ pub fn init() -> Result<(UMMConfig, LockFile), InitError> {
     let home = home_dir().unwrap();
     let umm_dir = home.join(".ultramodmanager");
 
-    if !umm_dir.exists() || !umm_dir.is_dir() {
+    if !umm_dir.exists() {
+        create_dir_all(&umm_dir)
+            .map_err(|_| InitError::new("Unable to create .ultramodmanager directory."))?;
+    }
+
+    if !umm_dir.is_dir() {
         return Err(InitError::new(
             "The ultramodmanager dotfile needs to be a directory.",
         ));
@@ -76,5 +84,89 @@ pub fn init() -> Result<(UMMConfig, LockFile), InitError> {
         out
     };
 
+    let patterns_dir = &config.meta.patterns_dir;
+    let mods_dir = &config.meta.mods_dir;
+
+    if !patterns_dir.exists() {
+        std::fs::create_dir_all(&patterns_dir)
+            .map_err(|_| InitError::new("Failed to create local patterns directory."))?;
+    }
+
+    if !mods_dir.exists() {
+        std::fs::create_dir_all(&mods_dir)
+            .map_err(|_| InitError::new("Failed to create local mods directory."))?;
+    }
+
+    if !config.meta.ultrakill_patterns.exists() {
+        #[cfg(unix)]
+        {
+            if config.meta.ultrakill_path.exists() {
+                if let Err(e) =
+                    unix::fs::symlink(&config.meta.patterns_dir, &config.meta.ultrakill_patterns)
+                {
+                    return Err(InitError::new(format!(
+                            "Unable to symlink ULTRAMODMANAGER patterns directory ({}) to ULTRAKILL Patterns directory ({}): {}",
+                            &config.meta.patterns_dir.display(), &config.meta.ultrakill_patterns.display(), e
+                        )));
+                }
+            }
+        }
+
+        #[cfg(windows)]
+        {
+            if config.meta.ultrakill_path.exists() {
+                if let Err(e) = windows::fs::symlink_dir(
+                    &config.meta.patterns_dir,
+                    &config.meta.ultrakill_patterns,
+                ) {
+                    return Err(InitError::new(format!(
+                            "Unable to symlink ULTRAMODMANAGER patterns directory ({}) to ULTRAKILL Patterns directory ({}): {}",
+                            &config.meta.patterns_dir.display(), &config.meta.ultrakill_patterns.display(), e
+                        )));
+                }
+            }
+        }
+    }
+
+    if !config.meta.ultrakill_mods.exists() {
+        #[cfg(unix)]
+        {
+            if config.meta.ultrakill_path.exists() {
+                if let Err(e) =
+                    unix::fs::symlink(&config.meta.mods_dir, &config.meta.ultrakill_mods)
+                {
+                    return Err(InitError::new(format!(
+                            "Unable to symlink ULTRAMODMANAGER mods directory ({}) to ULTRAKILL Mods directory ({}): {}",
+                            &config.meta.mods_dir.display(), &config.meta.ultrakill_mods.display(), e
+                        )));
+                }
+            }
+        }
+
+        #[cfg(windows)]
+        {
+            if config.meta.ultrakill_path.exists() {
+                if let Err(e) =
+                    windows::fs::symlink_dir(&config.meta.mods_dir, &config.meta.ultrakill_mods)
+                {
+                    return Err(InitError::new(format!(
+                        "Unable to symlink ULTRAMODMANAGER mods directory ({}) to ULTRAKILL Mods directory ({}): {}",
+                        &config.meta.mods_dir.display(), &config.meta.ultrakill_mods.display(), e
+                    )));
+                }
+            }
+        }
+    }
+
     Ok((config, lock))
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_init() {
+        dbg!(init()).unwrap();
+    }
 }

@@ -25,8 +25,8 @@ pub struct UMMConfig {
 impl UMMConfig {
     pub fn set_ultrakill_path(&mut self, path: PathBuf) -> io::Result<()> {
         self.meta.ultrakill_path = path;
-        self.meta.ultrakill_mods = self.meta.ultrakill_path.join("Mods");
-        self.meta.ultrakill_patterns = self.meta.ultrakill_path.join("Cybergrind").join("Patterns");
+        self.meta.ultrakill_mods = self.meta.ultrakill_path.join("BepInEx").join("UMM Mods");
+        self.meta.ultrakill_patterns = self.meta.ultrakill_path.join("Cybergrind").join("Patterns").join("ULTRAMODMANAGER");
         self.save()?;
 
         Ok(())
@@ -51,6 +51,7 @@ impl Default for UMMConfig {
             meta: ConfigMeta {
                 mods_dir: umm_path.join("mods"),
                 patterns_dir: umm_path.join("patterns"),
+                umm_dir: umm_path,
                 ..Default::default()
             },
         }
@@ -169,30 +170,6 @@ impl LockFile {
             ))
         })?;
 
-        #[cfg(unix)]
-        {
-            if let Err(e) =
-                unix::fs::symlink(&dest, &config.meta.ultrakill_mods.join(&mod_dir_name))
-            {
-                return Err(RuntimeError::new(format!(
-                    "Unable to symlink new mod {} to the ULTRAKILL Mods directory ({:?}): {}",
-                    &mod_dir_name, &config.meta.ultrakill_mods, e
-                )));
-            }
-        }
-
-        #[cfg(windows)]
-        {
-            if let Err(e) =
-                windows::fs::symlink_dir(&dest, &config.meta.ultrakill_mods.join(&mod_dir_name))
-            {
-                return Err(RuntimeError::new(format!(
-                    "Unable to symlink new mod {} to the ULTRAKILL Mods directory ({:?}): {}",
-                    &mod_dir_name, &config.meta.ultrakill_mods, e
-                )));
-            }
-        }
-
         self.mods.push(ModLockRecord {
             id: parsed_manifest.mod_data.id,
             description: parsed_manifest.mod_data.description,
@@ -238,38 +215,6 @@ impl LockFile {
         )
         .map_err(|_| RuntimeError::new("Failed to write pattern file to fs."))?;
 
-        #[cfg(unix)]
-        {
-            if let Err(e) = unix::fs::symlink(
-                &config.meta.patterns_dir.join(format!("{}.cgp", &name)),
-                &config
-                    .meta
-                    .ultrakill_patterns
-                    .join(format!("{}.cgp", &name)),
-            ) {
-                return Err(RuntimeError::new(format!(
-                    "Unable to symlink {}.cgp to the ULTRAKILL Patterns directory ({:?}): {}",
-                    &name, &config.meta.ultrakill_patterns, e
-                )));
-            }
-        }
-
-        #[cfg(windows)]
-        {
-            if let Err(e) = windows::fs::symlink_file(
-                &config.meta.patterns_dir.join(format!("{}.cgp", &name)),
-                &config
-                    .meta
-                    .ultrakill_patterns
-                    .join(format!("{}.cgp", &name)),
-            ) {
-                return Err(RuntimeError::new(format!(
-                    "Unable to symlink {}.cgp to the ULTRAKILL Patterns directory ({:?}): {}",
-                    &name, &config.meta.ultrakill_patterns, e
-                )));
-            }
-        }
-
         self.patterns.push(PatternLockRecord {
             name,
             version: version.as_ref().into(),
@@ -314,6 +259,8 @@ pub struct PatternLockRecord {
 
 #[cfg(test)]
 mod test {
+    use crate::manager::init;
+
     use super::*;
 
     #[test]
@@ -334,6 +281,45 @@ mod test {
     fn manifest() {
         let manifest = Manifest::default();
         println!("{}", toml::to_string(&manifest).unwrap())
+    }
+
+    #[test]
+    fn install_pattern() {
+        let (config, mut lock) = init().unwrap();
+
+        lock.install_pattern(&config, "0.1.0", "uwu owo", "66543210000000(10)(10)
+66543210000000(10)(10)
+66000000000000(10)(10)
+77000000000000(10)(10)
+88000000000011(10)(10)
+99000000000011(10)(10)
+(10)(10)(10)(10)(11)(11)(12)(12)(12)(12)(11)(11)(10)(10)(10)(10)
+(10)(10)(10)(10)(11)(11)(12)(12)(12)(12)(11)(11)(10)(10)(10)(10)
+(10)(10)(10)(10)(11)(11)(12)(12)(12)(12)(11)(11)(10)(10)(10)(10)
+(10)(10)(10)(10)(11)(11)(12)(12)(12)(12)(11)(11)(10)(10)(10)(10)
+(10)(10)11000000000099
+(10)(10)11000000000088
+(10)(10)00000000000077
+(10)(10)00000000000066
+(10)(10)00000001234566
+(10)(10)00000001234566
+
+nnssssss000000p0
+nnssssss0000H0p0
+ssnnnnnnnn0000p0
+ssnnnnnnnnn0ssp0
+ssnnnnnnnnns00p0
+ssnnnnnnnnns0Jp0
+nnpspspnpnsnsnpp
+nnpspspnpnsnsnpp
+nnpspspnpnsnsnpp
+nnpspspnpnsnsnpp
+0pJ0snnnnnnnnnss
+0p00snnnnnnnnnss
+0pss0nnnnnnnnnss
+0p0000nnnnnnnnss
+0p0H0000sssssspp
+0p000000sssssspp").unwrap();
     }
 }
 
