@@ -1,14 +1,17 @@
 use std::{
     fmt::Display,
     fs::{create_dir_all, read_to_string, write},
-    os::unix,
 };
+
+#[cfg(unix)]
+use std::os::unix;
+
+#[cfg(windows)]
+use std::os::windows;
 
 use dirs::home_dir;
 
-use crate::{
-    models::{LockFile, UMMConfig},
-};
+use crate::models::{LockFile, UMMConfig};
 
 #[derive(Debug)]
 pub struct InitError {

@@ -5,12 +5,6 @@ use std::{
     path::PathBuf,
 };
 
-#[cfg(unix)]
-use std::os::unix;
-
-#[cfg(windows)]
-use std::os::windows;
-
 use dirs::home_dir;
 use semver::Version;
 use serde::{Deserialize, Serialize};
@@ -20,6 +14,7 @@ use crate::{error::RuntimeError, parse_internal::from_toml};
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct UMMConfig {
     pub meta: ConfigMeta,
+    pub user: UserConfig,
 }
 
 impl UMMConfig {
@@ -54,6 +49,9 @@ impl Default for UMMConfig {
                 umm_dir: umm_path,
                 ..Default::default()
             },
+            user: UserConfig {
+                ..Default::default()
+            }
         }
     }
 }
@@ -77,6 +75,12 @@ pub struct ConfigMeta {
     pub umm_dir: PathBuf,
     pub mods_dir: PathBuf,
     pub patterns_dir: PathBuf,
+}
+
+#[derive(Deserialize, Serialize, Debug, Default, Clone)]
+#[serde(rename_all = "kebab-case")]
+pub struct UserConfig {
+    pub user_token: String,
 }
 
 #[derive(Deserialize, Serialize, Debug, Default, Clone)]
