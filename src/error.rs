@@ -19,6 +19,8 @@ impl Display for RuntimeError {
     }
 }
 
+impl Error for RuntimeError {}
+
 #[derive(Debug)]
 pub struct ParseError {
     message: String,
