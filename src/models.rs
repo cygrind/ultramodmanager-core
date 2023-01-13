@@ -183,7 +183,7 @@ impl LockFile {
         self.mods.push(ModLockRecord {
             id: parsed_manifest.mod_data.id,
             description: parsed_manifest.mod_data.description,
-            name: mod_dir_name,
+            name: parsed_manifest.mod_data.name,
             version: parsed_manifest.mod_data.mod_version,
             ..Default::default()
         });
