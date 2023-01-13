@@ -21,7 +21,12 @@ impl UMMConfig {
     pub fn set_ultrakill_path(&mut self, path: PathBuf) -> io::Result<()> {
         self.meta.ultrakill_path = path;
         self.meta.ultrakill_mods = self.meta.ultrakill_path.join("BepInEx").join("UMM Mods");
-        self.meta.ultrakill_patterns = self.meta.ultrakill_path.join("Cybergrind").join("Patterns").join("ULTRAMODMANAGER");
+        self.meta.ultrakill_patterns = self
+            .meta
+            .ultrakill_path
+            .join("Cybergrind")
+            .join("Patterns")
+            .join("ULTRAMODMANAGER");
         self.save()?;
 
         Ok(())
@@ -51,7 +56,7 @@ impl Default for UMMConfig {
             },
             user: UserConfig {
                 ..Default::default()
-            }
+            },
         }
     }
 }
@@ -154,14 +159,9 @@ impl LockFile {
         );
         let dest = config.meta.mods_dir.join(&mod_dir_name);
 
-        if self
-            .mods
-            .iter()
-            .any(|m| {
-                m.version == parsed_manifest.mod_data.mod_version
-                    && m.id == parsed_manifest.mod_data.id
-            })
-        {
+        if self.mods.iter().any(|m| {
+            m.version == parsed_manifest.mod_data.mod_version && m.id == parsed_manifest.mod_data.id
+        }) {
             return Err(RuntimeError::new(
                 "A mod with that id and version already exists locally.",
             ));
@@ -210,12 +210,14 @@ impl LockFile {
         let orig_name = format!("{base_name}@{base_vers}");
         let mut name = orig_name.clone();
         let mut copy = 0;
+        let mut manifest_name = base_name.clone();
 
         cygrind_utils::validate(&contents)
             .map_err(|e| RuntimeError::new(format!("{name}.cgp validation failed: {e}")))?;
 
-        while self.patterns.iter().map(|p| &p.name).any(|x| x == &name) {
+        while self.patterns.iter().map(|p| &p.name).any(|x| x == &manifest_name) {
             name = format!("{orig_name}_({copy})");
+            manifest_name = format!("{base_name}_({copy})");
             copy += 1;
         }
 
@@ -226,7 +228,7 @@ impl LockFile {
         .map_err(|_| RuntimeError::new("Failed to write pattern file to fs."))?;
 
         self.patterns.push(PatternLockRecord {
-            name: format!("{base_name}_({copy})"),
+            name: manifest_name,
             version: version.as_ref().into(),
         });
 
@@ -297,7 +299,13 @@ mod test {
     fn install_pattern() {
         let (config, mut lock) = init().unwrap();
 
-        lock.install_pattern(&config, "0.1.0", "uwu owo", include_str!("../test-data/test.cgp")).unwrap();
+        lock.install_pattern(
+            &config,
+            "0.1.0",
+            "uwu owo",
+            include_str!("../test-data/test.cgp"),
+        )
+        .unwrap();
     }
 
     #[test]
