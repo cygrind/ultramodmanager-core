@@ -1,3 +1,9 @@
+#[cfg(unix)]
+use std::os::unix;
+
+#[cfg(windows)]
+use std::os::windows;
+
 use std::path::Path;
 use std::{fs, io};
 use std::{
@@ -21,12 +27,7 @@ impl UMMConfig {
     pub fn set_ultrakill_path(&mut self, path: PathBuf) -> io::Result<()> {
         self.meta.ultrakill_path = path;
         self.meta.ultrakill_mods = self.meta.ultrakill_path.join("BepInEx").join("UMM Mods");
-        self.meta.ultrakill_patterns = self
-            .meta
-            .ultrakill_path
-            .join("Cybergrind")
-            .join("Patterns")
-            .join("ULTRAMODMANAGER");
+        self.meta.ultrakill_patterns = self.meta.ultrakill_path.join("Cybergrind").join("Patterns");
         self.save()?;
 
         Ok(())
@@ -215,7 +216,12 @@ impl LockFile {
         cygrind_utils::validate(&contents)
             .map_err(|e| RuntimeError::new(format!("{name}.cgp validation failed: {e}")))?;
 
-        while self.patterns.iter().map(|p| &p.name).any(|x| x == &manifest_name) {
+        while self
+            .patterns
+            .iter()
+            .map(|p| &p.name)
+            .any(|x| x == &manifest_name)
+        {
             name = format!("{orig_name}_({copy})");
             manifest_name = format!("{base_name}_({copy})");
             copy += 1;
@@ -226,6 +232,42 @@ impl LockFile {
             contents.as_ref(),
         )
         .map_err(|_| RuntimeError::new("Failed to write pattern file to fs."))?;
+
+        #[cfg(unix)]
+        {
+            if config.meta.ultrakill_path.exists() {
+                if let Err(e) = unix::fs::symlink(
+                    &config.meta.patterns_dir.join(format!("{}.cgp", &name)),
+                    &config
+                        .meta
+                        .ultrakill_patterns
+                        .join(format!("{}.cgp", &name)),
+                ) {
+                    return Err(RuntimeError::new(format!(
+                                "Unable to symlink a newly installed pattern to the ULTRAKILL Patterns directory: {}",
+                                e
+                            )));
+                }
+            }
+        }
+
+        #[cfg(windows)]
+        {
+            if config.meta.ultrakill_path.exists() {
+                if let Err(e) = windows::fs::symlink_file(
+                    &config.meta.patterns_dir.join(format!("{}.cgp", &name)),
+                    &config
+                        .meta
+                        .ultrakill_patterns
+                        .join(format!("{}.cgp", &name)),
+                ) {
+                    return Err(RuntimeError::new(format!(
+                                "Unable to symlink a newly installed pattern to the ULTRAKILL Patterns directory: {}",
+                                e
+                            )));
+                }
+            }
+        }
 
         self.patterns.push(PatternLockRecord {
             name: manifest_name,

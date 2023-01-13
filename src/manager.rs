@@ -100,36 +100,36 @@ pub fn init() -> Result<(UMMConfig, LockFile), InitError> {
             .map_err(|_| InitError::new("Failed to create local mods directory."))?;
     }
 
-    if !config.meta.ultrakill_patterns.exists() {
-        #[cfg(unix)]
-        {
-            if config.meta.ultrakill_path.exists() {
-                if let Err(e) =
-                    unix::fs::symlink(&config.meta.patterns_dir, &config.meta.ultrakill_patterns)
-                {
-                    return Err(InitError::new(format!(
-                            "Unable to symlink ULTRAMODMANAGER patterns directory ({}) to ULTRAKILL Patterns directory ({}): {}",
-                            &config.meta.patterns_dir.display(), &config.meta.ultrakill_patterns.display(), e
-                        )));
-                }
-            }
-        }
+    // if !config.meta.ultrakill_patterns.exists() {
+    //     #[cfg(unix)]
+    //     {
+    //         if config.meta.ultrakill_path.exists() {
+    //             if let Err(e) =
+    //                 unix::fs::symlink(&config.meta.patterns_dir, &config.meta.ultrakill_patterns)
+    //             {
+    //                 return Err(InitError::new(format!(
+    //                         "Unable to symlink ULTRAMODMANAGER patterns directory ({}) to ULTRAKILL Patterns directory ({}): {}",
+    //                         &config.meta.patterns_dir.display(), &config.meta.ultrakill_patterns.display(), e
+    //                     )));
+    //             }
+    //         }
+    //     }
 
-        #[cfg(windows)]
-        {
-            if config.meta.ultrakill_path.exists() {
-                if let Err(e) = windows::fs::symlink_dir(
-                    &config.meta.patterns_dir,
-                    &config.meta.ultrakill_patterns,
-                ) {
-                    return Err(InitError::new(format!(
-                            "Unable to symlink ULTRAMODMANAGER patterns directory ({}) to ULTRAKILL Patterns directory ({}): {}",
-                            &config.meta.patterns_dir.display(), &config.meta.ultrakill_patterns.display(), e
-                        )));
-                }
-            }
-        }
-    }
+    //     #[cfg(windows)]
+    //     {
+    //         if config.meta.ultrakill_path.exists() {
+    //             if let Err(e) = windows::fs::symlink_dir(
+    //                 &config.meta.patterns_dir,
+    //                 &config.meta.ultrakill_patterns,
+    //             ) {
+    //                 return Err(InitError::new(format!(
+    //                         "Unable to symlink ULTRAMODMANAGER patterns directory ({}) to ULTRAKILL Patterns directory ({}): {}",
+    //                         &config.meta.patterns_dir.display(), &config.meta.ultrakill_patterns.display(), e
+    //                     )));
+    //             }
+    //         }
+    //     }
+    // }
 
     if !config.meta.ultrakill_mods.exists() {
         #[cfg(unix)]
