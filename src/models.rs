@@ -226,7 +226,7 @@ impl LockFile {
         .map_err(|_| RuntimeError::new("Failed to write pattern file to fs."))?;
 
         self.patterns.push(PatternLockRecord {
-            name,
+            name: format!("{base_name}_({copy})"),
             version: version.as_ref().into(),
         });
 

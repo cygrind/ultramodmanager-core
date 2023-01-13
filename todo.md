@@ -1,0 +1,1 @@
+implement better checking for unique name by name/ver on the manifest only
