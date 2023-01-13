@@ -28,7 +28,7 @@ impl InitError {
 
 impl Display for InitError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self)
+        write!(f, "{self:?}")
     }
 }
 
@@ -91,12 +91,12 @@ pub fn init() -> Result<(UMMConfig, LockFile), InitError> {
     let mods_dir = &config.meta.mods_dir;
 
     if !patterns_dir.exists() {
-        std::fs::create_dir_all(&patterns_dir)
+        std::fs::create_dir_all(patterns_dir)
             .map_err(|_| InitError::new("Failed to create local patterns directory."))?;
     }
 
     if !mods_dir.exists() {
-        std::fs::create_dir_all(&mods_dir)
+        std::fs::create_dir_all(mods_dir)
             .map_err(|_| InitError::new("Failed to create local mods directory."))?;
     }
 

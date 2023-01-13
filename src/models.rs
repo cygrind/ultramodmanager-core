@@ -60,7 +60,7 @@ impl Save for UMMConfig {
     /// Saves the config with any mutable changes you may have implemented
     fn save(&self) -> io::Result<()> {
         write(
-            &self.meta.umm_dir.join("config.toml"),
+            self.meta.umm_dir.join("config.toml"),
             toml::to_string_pretty(self).unwrap(),
         )
     }
@@ -122,8 +122,16 @@ impl LockFile {
     pub fn install_mod(
         &mut self,
         config: &UMMConfig,
-        mod_dir: PathBuf,
+        mod_dir: impl AsRef<Path>,
     ) -> Result<(), RuntimeError> {
+        let mod_dir = mod_dir.as_ref();
+
+        if !mod_dir.exists() || !mod_dir.is_dir() {
+            return Err(RuntimeError::new(format!(
+                "The specified path doesn't exist or is not a directory.",
+            )));
+        }
+
         let manifest_path = mod_dir.join("manifest.toml");
 
         if !manifest_path.exists() || !manifest_path.is_file() {
@@ -149,12 +157,10 @@ impl LockFile {
         if self
             .mods
             .iter()
-            .filter(|m| {
-                &m.version == &parsed_manifest.mod_data.mod_version
-                    && &m.id == &parsed_manifest.mod_data.id
+            .any(|m| {
+                m.version == parsed_manifest.mod_data.mod_version
+                    && m.id == parsed_manifest.mod_data.id
             })
-            .next()
-            .is_some()
         {
             return Err(RuntimeError::new(
                 "A mod with that id and version already exists locally.",
@@ -183,7 +189,7 @@ impl LockFile {
         });
 
         write(
-            &config.meta.umm_dir.join("ultramodmanager.lock"),
+            config.meta.umm_dir.join("ultramodmanager.lock"),
             toml::to_string_pretty(&self).unwrap(),
         )
         .map_err(|_| RuntimeError::new("Failed to write updated lockfile to fs."))?;
@@ -206,7 +212,7 @@ impl LockFile {
         let mut copy = 0;
 
         cygrind_utils::validate(&contents)
-            .map_err(|e| RuntimeError::new(format!("{name}.cgp validation failed: {}", e)))?;
+            .map_err(|e| RuntimeError::new(format!("{name}.cgp validation failed: {e}")))?;
 
         while self.patterns.iter().map(|p| &p.name).any(|x| x == &name) {
             name = format!("{orig_name}_({copy})");
@@ -225,7 +231,7 @@ impl LockFile {
         });
 
         write(
-            &config.meta.umm_dir.join("ultramodmanager.lock"),
+            config.meta.umm_dir.join("ultramodmanager.lock"),
             toml::to_string_pretty(&self).unwrap(),
         )
         .map_err(|_| RuntimeError::new("Failed to write updated lockfile to fs."))?;
@@ -291,39 +297,14 @@ mod test {
     fn install_pattern() {
         let (config, mut lock) = init().unwrap();
 
-        lock.install_pattern(&config, "0.1.0", "uwu owo", "66543210000000(10)(10)
-66543210000000(10)(10)
-66000000000000(10)(10)
-77000000000000(10)(10)
-88000000000011(10)(10)
-99000000000011(10)(10)
-(10)(10)(10)(10)(11)(11)(12)(12)(12)(12)(11)(11)(10)(10)(10)(10)
-(10)(10)(10)(10)(11)(11)(12)(12)(12)(12)(11)(11)(10)(10)(10)(10)
-(10)(10)(10)(10)(11)(11)(12)(12)(12)(12)(11)(11)(10)(10)(10)(10)
-(10)(10)(10)(10)(11)(11)(12)(12)(12)(12)(11)(11)(10)(10)(10)(10)
-(10)(10)11000000000099
-(10)(10)11000000000088
-(10)(10)00000000000077
-(10)(10)00000000000066
-(10)(10)00000001234566
-(10)(10)00000001234566
+        lock.install_pattern(&config, "0.1.0", "uwu owo", include_str!("../test-data/test.cgp")).unwrap();
+    }
 
-nnssssss000000p0
-nnssssss0000H0p0
-ssnnnnnnnn0000p0
-ssnnnnnnnnn0ssp0
-ssnnnnnnnnns00p0
-ssnnnnnnnnns0Jp0
-nnpspspnpnsnsnpp
-nnpspspnpnsnsnpp
-nnpspspnpnsnsnpp
-nnpspspnpnsnsnpp
-0pJ0snnnnnnnnnss
-0p00snnnnnnnnnss
-0pss0nnnnnnnnnss
-0p0000nnnnnnnnss
-0p0H0000sssssspp
-0p000000sssssspp").unwrap();
+    #[test]
+    fn install_mod() {
+        let (config, mut lock) = init().unwrap();
+
+        lock.install_mod(&config, "test-data/test-mod").unwrap();
     }
 }
 
@@ -347,7 +328,7 @@ fn copy<U: AsRef<Path>, V: AsRef<Path>>(from: U, to: V) -> Result<(), std::io::E
             output_root.join(&src)
         };
         if fs::metadata(&dest).is_err() {
-            println!(" mkdir: {:?}", dest);
+            println!(" mkdir: {dest:?}");
             fs::create_dir_all(&dest)?;
         }
 
@@ -364,7 +345,7 @@ fn copy<U: AsRef<Path>, V: AsRef<Path>>(from: U, to: V) -> Result<(), std::io::E
                         fs::copy(&path, &dest_path)?;
                     }
                     None => {
-                        println!("failed: {:?}", path);
+                        println!("failed: {path:?}");
                     }
                 }
             }
